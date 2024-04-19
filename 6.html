@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Navigation Website</title>
+  <!-- Include Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <!-- Include Leaflet and Routing Machine JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+  <!-- Include Leaflet Routing Machine CSS (optional) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+  <!-- Dark theme CSS -->
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background-color: #222;
+      color: #fff;
+    }
+
+    #map {
+      height: 400px;
+      margin-bottom: 20px;
+    }
+
+    form {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    input[type="text"],
+    input[type="submit"] {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+      border: none;
+      background-color: #444;
+      color: #fff;
+      border-radius: 5px;
+    }
+
+    input[type="checkbox"] {
+      margin-right: 5px;
+    }
+
+    input[type="submit"] {
+      cursor: pointer;
+      background-color: #007bff;
+    }
+
+    input[type="submit"]:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="all" style="display: flex; flex-direction: column; justify-content: center; align-items: center;">
+    <form id="routingForm">
+        <label for="start">Starting Point:</label>
+        <div class="starting" style="display: flex;">
+            <input type="text" id="start" name="start">
+        <input type="checkbox" id="liveLocationCheckbox" name="liveLocation">   
+        <label for="liveLocationCheckbox">Use live location</label><br>
+    </div>
+        <label for="destination">Destination:</label>
+        <input type="text" id="destination" name="destination"><br><br>
+        <input type="submit" value="Find Route">
+      </form>
+    </div>
+      <div id="map" style="width: 90%; position: relative; left: 5%;"></div>
+  
+
+  <script>
+    var map = L.map('map').setView([51.505, -0.09], 13);
+    var control = null;
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Function to get user's current location
+    function getCurrentLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+          var lat = position.coords.latitude;
+          var lon = position.coords.longitude;
+          var userLocation = L.latLng(lat, lon);
+
+          // Set the user's current location as the starting point
+          document.getElementById('start').value = "Current Location";
+          if (control) {
+            control.setWaypoints([userLocation, L.latLng(51.51, -0.1)]);
+          } else {
+            control = L.Routing.control({
+              waypoints: [userLocation, L.latLng(51.51, -0.1)],
+              routeWhileDragging: true,
+              serviceUrl: 'https://router.project-osrm.org/route/v1'
+            }).addTo(map);
+          }
+        }, function(error) {
+          alert("Error getting current location: " + error.message);
+        });
+      } else {
+        alert("Geolocation is not supported by this browser.");
+      }
+    }
+
+    // Handle form submission
+    document.getElementById('routingForm').addEventListener('submit', function(event) {
+      event.preventDefault(); // Prevent form submission
+
+      var startInput = document.getElementById('start').value; // Get the value of the start input
+      var destinationInput = document.getElementById('destination').value; // Get the value of the destination input
+
+      // If live location checkbox is checked, get user's current location
+      if (document.getElementById('liveLocationCheckbox').checked) {
+        getCurrentLocation();
+      } else {
+        // Geocode the start and destination addresses to coordinates
+        // This part remains the same as in the previous code snippet
+        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${startInput}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.length > 0) {
+              var startCoords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+
+              fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${destinationInput}`)
+                .then(response => response.json())
+                .then(data => {
+                  if (data.length > 0) {
+                    var destinationCoords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+
+                    // Set waypoints and show the routing control
+                    control = L.Routing.control({
+                      waypoints: [L.latLng(startCoords), L.latLng(destinationCoords)],
+                      routeWhileDragging: true
+                    }).addTo(map);
+                  } else {
+                    alert("Destination not found.");
+                  }
+                });
+            } else {
+              alert("Starting point not found.");
+            }
+          });
+      }
+    });
+  </script>
+</body>
+</html>
